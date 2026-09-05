@@ -1,0 +1,21 @@
+# Entorno virtual (no subir la carpeta con las librerías)
+.venv/
+venv/
+env/
+
+# Archivos de credenciales y claves privadas
+.env
+*.env
+
+# Archivos temporales de Python
+__pycache__/
+*.pyc
+
+# Configuración propia de PyCharm
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+api_test.py
