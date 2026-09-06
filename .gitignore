@@ -19,3 +19,4 @@ __pycache__/
 Thumbs.db
 
 api_test.py
+.streamlit/secrets.toml
