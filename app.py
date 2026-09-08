@@ -1,5 +1,7 @@
 import streamlit as st
 import rawg_client
+from rawg_client import search_game_by_name
+from gemini_client import recommend_games_with_gemini
 
 st.set_page_config(
     page_title="GameFlix",
@@ -10,11 +12,27 @@ st.set_page_config(
 # Lightweight Netflix dark theme
 st.markdown("""
 <style>
+    /* Global app container & readable font weights */
     .stApp {
         background-color: #111215;
         color: #ffffff;
+        font-weight: 500;
+        -webkit-font-smoothing: antialiased;
     }
 
+    /* Make all general paragraphs, labels, and spans bolder and sharper */
+    p, span, label, div {
+        font-weight: 500;
+    }
+
+    /* Subtitles and captions */
+    .stCaption, [data-testid="stCaptionContainer"] {
+        color: #d1d5db !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+    }
+
+    /* Card hover interactions */
     div[data-testid="stImage"] img {
         border-radius: 8px;
         transition: transform 0.25s ease;
@@ -24,34 +42,65 @@ st.markdown("""
         transform: scale(0.97);
     }
 
+    /* Prominent score badge */
     .score-badge {
         background-color: #e50914;
-        color: white;
-        padding: 2px 8px;
+        color: #ffffff;
+        padding: 3px 9px;
         border-radius: 4px;
-        font-weight: bold;
-        font-size: 0.85rem;
+        font-weight: 700;
+        font-size: 0.88rem;
+        letter-spacing: 0.3px;
     }
 
+    /* Netflix-themed red action buttons */
     div.stButton > button {
         background-color: #e50914;
-        color: white;
+        color: #ffffff;
         border: none;
         border-radius: 4px;
-        font-weight: bold;
+        font-weight: 700;
+        font-size: 0.95rem;
         width: 100%;
         margin-top: 5px;
+        letter-spacing: 0.4px;
     }
 
     div.stButton > button:hover {
         background-color: #b80710;
-        color: white;
+        color: #ffffff;
+    }
+
+    /* YouTube link button inside dialog */
+    div[data-testid="stLinkButton"] a {
+        background-color: #1e2025;
+        color: #ff3b30 !important;
+        border: 1.5px solid #e50914;
+        border-radius: 6px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0.5rem 1.2rem;
+        transition: all 0.2s ease-in-out;
+        margin-top: 8px;
+        margin-bottom: 8px;
+    }
+
+    div[data-testid="stLinkButton"] a:hover {
+        background-color: #e50914;
+        color: #ffffff !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 14px rgba(229, 9, 20, 0.45);
     }
 </style>
 """, unsafe_allow_html=True)
 
 
-# Cache catalog response for 1 hour
+# Cache catalog response for 1 hour to reduce API requests
 @st.cache_data(ttl=3600)
 def cargar_catalogo():
     return rawg_client.get_popular_games(page_size=40)
@@ -67,11 +116,13 @@ def mostrar_modal_detalle(game_id):
         st.error("No se pudo cargar la información de este juego.")
         return
 
-    # Video trailer fallback to banner image
+    # Video trailer fallback to banner image with styled YouTube link button
     if detalle.get("trailer"):
         st.video(detalle["trailer"])
     elif detalle.get("image"):
-        st.image(detalle["image"], use_container_width=True)
+        st.image(detalle["image"], width="stretch")
+        query_yt = f"{detalle['name']} official trailer".replace(" ", "+")
+        st.link_button("▶  Ver tráiler oficial en YouTube", f"https://www.youtube.com/results?search_query={query_yt}")
 
     st.markdown(f"<h2 style='color: #e50914; margin-top: 10px;'>{detalle['name']}</h2>", unsafe_allow_html=True)
 
@@ -91,8 +142,10 @@ def mostrar_modal_detalle(game_id):
     c_desc, c_specs = st.columns([2, 1])
     with c_desc:
         st.markdown("**Sinopsis**")
-        st.markdown(f"<div style='max-height: 250px; overflow-y: auto; line-height: 1.6; color: #f1f1f1; background-color: #1a1c22; padding: 12px; border-radius: 6px;'>{detalle['description']}</div>", unsafe_allow_html=True)
-
+        st.markdown(
+            f"<div style='max-height: 250px; overflow-y: auto; line-height: 1.7; color: #ffffff; font-weight: 500; font-size: 0.95rem; background-color: #1a1c22; padding: 14px; border-radius: 6px; border: 1px solid #2d3139;'>{detalle['description']}</div>",
+            unsafe_allow_html=True
+        )
     with c_specs:
         st.markdown("**Géneros**")
         generos = detalle.get("genres", [])
@@ -109,16 +162,38 @@ def mostrar_modal_detalle(game_id):
 
 # App title and header
 st.markdown("<h1 style='color: #e50914;'>GAMEFLIX</h1>", unsafe_allow_html=True)
-st.caption("Catálogo de los 40 títulos mejor valorados")
 
-juegos = cargar_catalogo()
+# Natural language AI search input
+prompt_usuario = st.text_input(
+    "🔍 ¿Qué te apetece jugar hoy?",
+    placeholder="Ej: 'Juegos de detectives oscuros con estética retro' o 'Aventuras relajantes de granja'..."
+)
 
 IMAGEN_DEFAULT = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80"
 
-# Render responsive 4-column cards
-if juegos:
+# Conditional data flow: AI recommendations vs popular default catalog
+if prompt_usuario:
+    with st.spinner("🤖 Gemini está analizando tu petición y buscando los mejores títulos..."):
+        titulos_recomendados = recommend_games_with_gemini(prompt_usuario)
+
+    if titulos_recomendados:
+        st.caption(f"Recomendaciones inteligentes de Gemini ({len(titulos_recomendados)} títulos encontrados)")
+        juegos_mostrar = []
+        for titulo in titulos_recomendados:
+            ficha = search_game_by_name(titulo)
+            if ficha:
+                juegos_mostrar.append(ficha)
+    else:
+        st.warning("No encontramos títulos que encajen exactamente con esa descripción. Prueba con otra.")
+        juegos_mostrar = []
+else:
+    st.caption("Catálogo de los títulos más populares")
+    juegos_mostrar = cargar_catalogo()
+
+# Responsive 4-column game card grid
+if juegos_mostrar:
     cols = st.columns(4)
-    for index, juego in enumerate(juegos):
+    for index, juego in enumerate(juegos_mostrar):
         col_actual = cols[index % 4]
         with col_actual:
             img_url = juego.get("background_image") or IMAGEN_DEFAULT
@@ -133,4 +208,5 @@ if juegos:
                 mostrar_modal_detalle(juego["id"])
             st.write("")
 else:
-    st.warning("No se pudieron cargar los juegos. Revisa que secrets.toml tenga RAWG_API_KEY correcta.")
+    if not prompt_usuario:
+        st.warning("No se pudieron cargar los juegos. Revisa que secrets.toml tenga RAWG_API_KEY correcta.")

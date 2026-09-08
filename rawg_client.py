@@ -6,18 +6,24 @@ API_KEY = st.secrets["RAWG_API_KEY"]
 BASE_URL = "https://api.rawg.io/api"
 
 
-def get_popular_games(page_size=40):
+def get_popular_games(page_size: int = 40):
+    """Fetches a list of highlygit status rated and popular games from the RAWG API."""
+    api_key = API_KEY
     url = f"{BASE_URL}/games"
     params = {
-        "key": API_KEY,
+        "key": api_key,
         "page_size": page_size,
         "ordering": "-metacritic"
     }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        return response.json().get("results", [])
-    print(f"Error fetching catalog: {response.status_code}")
-    return []
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("results", [])
+    except Exception as e:
+        st.error(f"Error loading games catalog: {e}")
+        return []
 
 
 def get_game_details(game_id):
@@ -50,3 +56,34 @@ def get_game_details(game_id):
         "image": data.get("background_image"),
         "trailer": trailer_url
     }
+
+def search_game_by_name(game_name: str) -> dict | None:
+    """Busca un juego por nombre en RAWG y devuelve los datos del primer resultado relevante."""
+    api_key = API_KEY
+    url = f"{BASE_URL}/games"
+    params = {
+        "key": api_key,
+        "search": game_name,
+        "page_size": 1,
+        "search_precise": True
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        results = data.get("results", [])
+
+        if not results:
+            return None
+
+        juego = results[0]
+        return {
+            "id": juego.get("id"),
+            "name": juego.get("name"),
+            "background_image": juego.get("background_image"),
+            "rating": juego.get("rating", 0.0),
+            "metacritic": juego.get("metacritic")
+        }
+    except Exception:
+        return None
