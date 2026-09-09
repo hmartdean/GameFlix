@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Load api key from local secrets file
 API_KEY = st.secrets["RAWG_API_KEY"]
@@ -57,27 +58,27 @@ def get_game_details(game_id):
         "trailer": trailer_url
     }
 
-
+@st.cache_data(ttl=3600, show_spinner=False)
 def search_game_by_name(game_name: str) -> dict | None:
-    """Searches for a game by title in RAWG and returns data for the top relevant match."""
-    api_key = API_KEY
+    """Searches for a game by title in RAWG and caches the result."""
     url = f"{BASE_URL}/games"
     params = {
-        "key": api_key,
+        "key": API_KEY,
         "search": game_name,
         "page_size": 1,
         "search_precise": True
     }
-
     try:
-        response = requests.get(url, params=params, timeout=5)
+        response = requests.get(
+            url,
+            params=params,
+            timeout=5
+        )
         response.raise_for_status()
-        data = response.json()
-        results = data.get("results", [])
+        results = response.json().get("results", [])
 
         if not results:
             return None
-
         game = results[0]
         return {
             "id": game.get("id"),
@@ -86,5 +87,51 @@ def search_game_by_name(game_name: str) -> dict | None:
             "rating": game.get("rating", 0.0),
             "metacritic": game.get("metacritic")
         }
-    except Exception:
+    except requests.RequestException:
         return None
+
+
+def search_games_parallel(game_names: list[str]) -> list[dict]:
+    """Search multiple games in RAWG concurrently."""
+
+    if not game_names:
+        return []
+
+    results = []
+
+    # Maximum 6 simultaneous RAWG requests
+    max_workers = min(6, len(game_names))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+
+        future_to_title = {
+            executor.submit(search_game_by_name, title): title
+            for title in game_names
+        }
+
+        for future in as_completed(future_to_title):
+            try:
+                game = future.result()
+
+                if game:
+                    results.append(game)
+
+            except Exception:
+                continue
+
+    # Restore Gemini's original recommendation order
+    games_by_name = {
+        game["name"].lower(): game
+        for game in results
+        if game.get("name")
+    }
+
+    ordered_results = []
+
+    for title in game_names:
+        title_lower = title.lower()
+
+        if title_lower in games_by_name:
+            ordered_results.append(games_by_name[title_lower])
+
+    return ordered_results

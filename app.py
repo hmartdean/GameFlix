@@ -2,7 +2,7 @@ import base64
 import streamlit as st
 import rawg_client
 from gemini_client import recommend_games_with_gemini
-from rawg_client import search_game_by_name
+from rawg_client import search_games_parallel
 
 # Configure page layout and metadata
 st.set_page_config(
@@ -353,12 +353,7 @@ if submit_search and user_prompt.strip():
             f"Intelligent recommendations from Gemini "
             f"({len(recommended_titles)} titles found)"
         )
-        games_to_display = []
-
-        for title in recommended_titles:
-            game_card = search_game_by_name(title)
-            if game_card:
-                games_to_display.append(game_card)
+        games_to_display = search_games_parallel(recommended_titles)
 
     else:
         st.warning(
