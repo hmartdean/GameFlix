@@ -7,7 +7,7 @@ BASE_URL = "https://api.rawg.io/api"
 
 
 def get_popular_games(page_size: int = 40):
-    """Fetches a list of highlygit status rated and popular games from the RAWG API."""
+    """Fetches a list of highly rated and popular games from the RAWG API."""
     api_key = API_KEY
     url = f"{BASE_URL}/games"
     params = {
@@ -57,8 +57,9 @@ def get_game_details(game_id):
         "trailer": trailer_url
     }
 
+
 def search_game_by_name(game_name: str) -> dict | None:
-    """Busca un juego por nombre en RAWG y devuelve los datos del primer resultado relevante."""
+    """Searches for a game by title in RAWG and returns data for the top relevant match."""
     api_key = API_KEY
     url = f"{BASE_URL}/games"
     params = {
@@ -77,13 +78,13 @@ def search_game_by_name(game_name: str) -> dict | None:
         if not results:
             return None
 
-        juego = results[0]
+        game = results[0]
         return {
-            "id": juego.get("id"),
-            "name": juego.get("name"),
-            "background_image": juego.get("background_image"),
-            "rating": juego.get("rating", 0.0),
-            "metacritic": juego.get("metacritic")
+            "id": game.get("id"),
+            "name": game.get("name"),
+            "background_image": game.get("background_image"),
+            "rating": game.get("rating", 0.0),
+            "metacritic": game.get("metacritic")
         }
     except Exception:
         return None

@@ -1,20 +1,24 @@
+import base64
 import streamlit as st
 import rawg_client
-import base64
-from rawg_client import search_game_by_name
 from gemini_client import recommend_games_with_gemini
+from rawg_client import search_game_by_name
 
+# Configure page layout and metadata
 st.set_page_config(
     page_title="GameFlix",
     page_icon="🎮",
     layout="wide"
 )
-def get_base64_image(image_path):
+
+# Convert local image to base64 for background injection
+def get_base64_image(image_path: str) -> str:
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-fondo_b64 = get_base64_image("fondo.jpg")
+background_b64 = get_base64_image("fondo.jpg")
 
+# Global UI styling
 st.markdown(f"""
 <style>
 
@@ -24,7 +28,7 @@ st.markdown(f"""
             rgba(15, 16, 20, 0.88),
             rgba(15, 16, 20, 0.95)
         ),
-        url("data:image/jpeg;base64,{fondo_b64}")
+        url("data:image/jpeg;base64,{background_b64}")
         no-repeat center center fixed !important;
 
     background-size: cover !important;
@@ -108,7 +112,7 @@ div[data-testid="stLinkButton"] a:hover {{
     box-shadow: 0 4px 14px rgba(229, 9, 20, 0.45);
 }}
 
-/* AI search status */
+/* AI search status badge */
 .gameflix-ai-status {{
     display: flex;
     align-items: center;
@@ -142,7 +146,7 @@ div[data-testid="stLinkButton"] a:hover {{
     }}
 }}
 
-/* Search Input styling */
+/* Search input styling */
 div[data-testid="stTextInput"] {{
     margin-top: 0px !important;
     margin-bottom: 0px !important;
@@ -178,6 +182,7 @@ div[data-testid="stTextInput"] div[data-baseweb="input"]:focus-within {{
         0 8px 30px rgba(0, 0, 0, 0.6) !important;
     transform: translateY(-1px);
 }}
+
 div[data-testid="stTextInput"] input {{
     background: transparent !important;
     color: #111111 !important;
@@ -199,6 +204,7 @@ div[data-testid="stTextInput"] input::placeholder {{
     color: #6b7280 !important;
     opacity: 1 !important;
 }}
+
 div[data-testid="stTextInput"] > div::before {{
     content: "✦";
     position: absolute;
@@ -247,62 +253,61 @@ div[data-testid="stFormSubmitButton"] > button:active {{
 
 # Cache catalog response for 1 hour to reduce API requests
 @st.cache_data(ttl=3600)
-def cargar_catalogo():
+def load_popular_catalog():
     return rawg_client.get_popular_games(page_size=40)
 
-
 # Wide detail modal dialog
-@st.dialog("Detalles del juego", width="large")
-def mostrar_modal_detalle(game_id):
-    with st.spinner("Cargando ficha técnica..."):
-        detalle = rawg_client.get_game_details(game_id)
+@st.dialog("Game Details", width="large")
+def show_detail_modal(game_id: int):
+    with st.spinner("Loading game details..."):
+        details = rawg_client.get_game_details(game_id)
 
-    if not detalle:
-        st.error("No se pudo cargar la información de este juego.")
+    if not details:
+        st.error("Could not load information for this game.")
         return
 
     # Video trailer fallback to banner image with styled YouTube link button
-    if detalle.get("trailer"):
-        st.video(detalle["trailer"])
-    elif detalle.get("image"):
-        st.image(detalle["image"], width="stretch")
-        query_yt = f"{detalle['name']} official trailer".replace(" ", "+")
-        st.link_button("▶  Ver tráiler oficial en YouTube", f"https://www.youtube.com/results?search_query={query_yt}")
+    if details.get("trailer"):
+        st.video(details["trailer"])
+    elif details.get("image"):
+        st.image(details["image"], width="stretch")
+        query_yt = f"{details['name']} official trailer".replace(" ", "+")
+        st.link_button("▶  Watch official trailer on YouTube", f"https://www.youtube.com/results?search_query={query_yt}")
 
-    st.markdown(f"<h2 style='color: #e50914; margin-top: 10px;'>{detalle['name']}</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='color: #e50914; margin-top: 10px;'>{details['name']}</h2>", unsafe_allow_html=True)
 
     # Score and release metadata row
-    m_col1, m_col2, m_col3 = st.columns(3)
-    with m_col1:
-        st.markdown(f"⭐ **Puntuación:** {detalle['rating']} / 5")
-    with m_col2:
-        meta = detalle.get("metacritic") or "N/A"
-        st.markdown(f"🏆 **Metacritic:** <span class='score-badge'>{meta}</span>", unsafe_allow_html=True)
-    with m_col3:
-        st.markdown(f"📅 **Lanzamiento:** {detalle['released']}")
+    col_rating, col_meta, col_release = st.columns(3)
+    with col_rating:
+        st.markdown(f"⭐ **Rating:** {details['rating']} / 5")
+    with col_meta:
+        meta_score = details.get("metacritic") or "N/A"
+        st.markdown(f"🏆 **Metacritic:** <span class='score-badge'>{meta_score}</span>", unsafe_allow_html=True)
+    with col_release:
+        st.markdown(f"📅 **Released:** {details['released']}")
 
     st.divider()
 
     # Two-column layout: synopsis on left, technical specs on right
-    c_desc, c_specs = st.columns([2, 1])
-    with c_desc:
-        st.markdown("**Sinopsis**")
+    col_synopsis, col_specs = st.columns([2, 1])
+    with col_synopsis:
+        st.markdown("**Synopsis**")
         st.markdown(
-            f"<div style='max-height: 250px; overflow-y: auto; line-height: 1.7; color: #ffffff; font-weight: 500; font-size: 0.95rem; background-color: #1a1c22; padding: 14px; border-radius: 6px; border: 1px solid #2d3139;'>{detalle['description']}</div>",
+            f"<div style='max-height: 250px; overflow-y: auto; line-height: 1.7; color: #ffffff; font-weight: 500; font-size: 0.95rem; background-color: #1a1c22; padding: 14px; border-radius: 6px; border: 1px solid #2d3139;'>{details['description']}</div>",
             unsafe_allow_html=True
         )
-    with c_specs:
-        st.markdown("**Géneros**")
-        generos = detalle.get("genres", [])
-        if generos:
-            generos_html = " ".join([f"<span style='background-color: #e50914; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; margin: 3px; display: inline-block;'>{g}</span>" for g in generos])
-            st.markdown(generos_html, unsafe_allow_html=True)
+    with col_specs:
+        st.markdown("**Genres**")
+        genres = details.get("genres", [])
+        if genres:
+            genres_html = " ".join([f"<span style='background-color: #e50914; color: #ffffff; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem; margin: 3px; display: inline-block;'>{g}</span>" for g in genres])
+            st.markdown(genres_html, unsafe_allow_html=True)
         else:
-            st.caption("No especificado")
+            st.caption("Not specified")
 
-        st.markdown("<br>**Plataformas**", unsafe_allow_html=True)
-        plataformas = detalle.get("platforms", [])
-        st.caption(", ".join(plataformas[:6]) if plataformas else "No especificadas")
+        st.markdown("<br>**Platforms**", unsafe_allow_html=True)
+        platforms = details.get("platforms", [])
+        st.caption(", ".join(platforms[:6]) if platforms else "Not specified")
 
 
 # App title and header
@@ -312,77 +317,77 @@ st.markdown("<h1 style='color: #e50914;'>GAMEFLIX</h1>", unsafe_allow_html=True)
 st.markdown("""
 <div class="gameflix-ai-status">
     <span class="gameflix-ai-dot"></span>
-    GAMEFLIX AI · SISTEMA DE RECOMENDACIÓN ONLINE
+    GAMEFLIX AI · ONLINE RECOMMENDATION SYSTEM
 </div>
 """, unsafe_allow_html=True)
 
 with st.form("gameflix_search", clear_on_submit=False):
-
     col_search, col_button = st.columns([7, 1.15], gap="small")
 
     with col_search:
-        prompt_usuario = st.text_input(
-            "¿Qué te apetece jugar hoy?",
-            placeholder="Describe tu próxima aventura... "
-                        "ej. detectives oscuros, mundo abierto, "
-                        "terror psicológico retro",
+        user_prompt = st.text_input(
+            "What would you like to play today?",
+            placeholder="Describe your next adventure... "
+                        "e.g. dark detectives, open world, "
+                        "retro psychological horror",
             label_visibility="visible"
         )
 
     with col_button:
-        buscar = st.form_submit_button(
-            "✦ EXPLORAR",
+        submit_search = st.form_submit_button(
+            "✦ EXPLORE",
             use_container_width=True
         )
-IMAGEN_DEFAULT = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80"
+
+DEFAULT_IMAGE_URL = "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=600&q=80"
 
 # Conditional data flow: AI recommendations vs popular default catalog
-if buscar and prompt_usuario.strip():
-    with st.spinner("🤖 Gemini está analizando tu petición y buscando los mejores títulos..."):
-        titulos_recomendados = recommend_games_with_gemini(
-            prompt_usuario.strip()
+if submit_search and user_prompt.strip():
+    with st.spinner("🤖 Gemini is analyzing your request and searching for the best titles..."):
+        recommended_titles = recommend_games_with_gemini(
+            user_prompt.strip()
         )
 
-    if titulos_recomendados:
+    if recommended_titles:
         st.caption(
-            f"Recomendaciones inteligentes de Gemini "
-            f"({len(titulos_recomendados)} títulos encontrados)"
+            f"Intelligent recommendations from Gemini "
+            f"({len(recommended_titles)} titles found)"
         )
-        juegos_mostrar = []
+        games_to_display = []
 
-        for titulo in titulos_recomendados:
-            ficha = search_game_by_name(titulo)
-            if ficha:
-                juegos_mostrar.append(ficha)
+        for title in recommended_titles:
+            game_card = search_game_by_name(title)
+            if game_card:
+                games_to_display.append(game_card)
 
     else:
         st.warning(
-            "No encontramos títulos que encajen exactamente "
-            "con esa descripción. Prueba con otra."
+            "We could not find titles that closely match "
+            "that description. Try another one."
         )
-        juegos_mostrar = []
+        games_to_display = []
 
 else:
-    st.caption("Catálogo de los títulos más populares")
-    juegos_mostrar = cargar_catalogo()
+    st.caption("Most popular games catalog")
+    games_to_display = load_popular_catalog()
 
 # Responsive 4-column game card grid
-if juegos_mostrar:
-    cols = st.columns(4)
-    for index, juego in enumerate(juegos_mostrar):
-        col_actual = cols[index % 4]
-        with col_actual:
-            img_url = juego.get("background_image") or IMAGEN_DEFAULT
-            st.image(img_url, width="stretch")
+if games_to_display:
+    columns = st.columns(4)
+    for index, game in enumerate(games_to_display):
+        current_column = columns[index % 4]
+        with current_column:
+            image_url = game.get("background_image") or DEFAULT_IMAGE_URL
+            st.image(image_url, width="stretch")
 
-            nombre = juego.get("name", "Desconocido")
-            rating = juego.get("rating", 0.0)
-            st.markdown(f"**{nombre}**")
+            game_name = game.get("name", "Unknown")
+            rating = game.get("rating", 0.0)
+            st.markdown(f"**{game_name}**")
             st.markdown(f"<span class='score-badge'>★ {rating} / 5</span>", unsafe_allow_html=True)
 
-            if st.button("Ver detalles", key=f"btn_{juego['id']}"):
-                mostrar_modal_detalle(juego["id"])
+            if st.button("View details", key=f"btn_{game['id']}"):
+                show_detail_modal(game["id"])
             st.write("")
 else:
-    if not prompt_usuario:
-        st.warning("No se pudieron cargar los juegos. Revisa que secrets.toml tenga RAWG_API_KEY correcta.")
+    if not user_prompt:
+        st.warning("Could not load games. Please check that secrets.toml contains a valid RAWG_API_KEY.")
