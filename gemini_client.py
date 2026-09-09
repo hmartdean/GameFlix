@@ -33,7 +33,7 @@ def recommend_games_with_gemini(user_prompt: str, min_count: int = 2, max_count:
 
         # Enforce structured JSON output to guarantee a clean list of strings
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.6-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
