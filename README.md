@@ -1,3 +1,4 @@
+Markdown
 # 🎬 GameFlix — AI-Powered Video Game Discovery
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gameflix.streamlit.app)
@@ -44,3 +45,48 @@ A modern, responsive video game recommendation platform featuring a Netflix-insp
    ```bash
    git clone [https://github.com/hmartdean/GameFlix.git](https://github.com/hmartdean/GameFlix.git)
    cd GameFlix
+Create and activate a virtual environment:
+
+Bash
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
+
+# macOS / Linux
+python3 -m venv .venv
+source .venv/bin/activate
+Install dependencies:
+
+Bash
+pip install -r requirements.txt
+Configure environment credentials:
+Copy the example configuration file:
+
+Bash
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+Open .streamlit/secrets.toml and add your keys:
+
+Ini, TOML
+RAWG_API_KEY = "your_actual_rawg_api_key"
+GEMINI_API_KEY = "your_actual_gemini_api_key"
+Run the application:
+
+Bash
+streamlit run app.py
+🏛️ Project Architecture
+Plaintext
+GameFlix/
+├── .streamlit/
+│   ├── secrets.toml.example   # Template for local development keys
+│   └── config.toml            # Optional Streamlit theme configuration
+├── app.py                     # Main application entrypoint and UI orchestration
+├── gemini_client.py           # NLP extraction and recommendation logic
+├── rawg_client.py             # RAWG REST API client and data fetching
+├── requirements.txt           # Production dependencies
+└── README.md                  # Project documentation and showcase
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
